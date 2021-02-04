@@ -5,7 +5,16 @@
 import json
 import dateutil.parser
 import babel
-from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify
+from flask import (
+  Flask, 
+  render_template, 
+  request, 
+  Response, 
+  flash, 
+  redirect, 
+  url_for, 
+  jsonify
+)
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
@@ -14,7 +23,7 @@ from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
 from datetime import datetime
-from models import Show, Venue, Artist
+from models import Show, Venue, Artist, db
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -22,7 +31,7 @@ from models import Show, Venue, Artist
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
+db.init_app(app)
 
 # TODO: connect to a local postgresql database
 migrate = Migrate(app, db)
@@ -171,36 +180,32 @@ def create_venue_form():
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
-  error = False
-  try:
-      venue = Venue()
-      venue.name=request.form['name']
-      venue.city=request.form['city']
-      venue.state=request.form['state']
-      venue.address=request.form['address']
-      venue.phone=request.form['phone']
-      venue.genres=request.form.getlist('genres')
-      venue.facebook_link=request.form['facebook_link']
-      venue.image_link=request.form['image_link']
-      venue.website=request.form['website']
-      if(request.form['seeking_talent'] == 'True'):
-            venue.seeking_talent = True
-      else:
-            venue.seeking_talent = False
-      if(request.form['seeking_description'] != ''):
-            venue.seeking_description=request.form['seeking_description']
+  
+  form = VenueForm(request.form, meta={'csrf': False})
+  if form.validate():
+      try:
+          venue = Venue()
+          form.populate_obj(venue)
 
-      db.session.add(venue)
-      db.session.commit()
+          if(request.form['seeking_talent'] == 'True'):
+              venue.seeking_talent = True
+          else:
+              venue.seeking_talent = False
 
-      # on successful db insert, flash success
-      flash('Venue ' + venue.name + ' was successfully listed!')
-  except:
-      error = True
-      db.session.rollback()
-      flash('An error occurred. Venue ' + venue.name + ' could not be listed.')
-  finally:
-      db.session.close()
+          db.session.add(venue)
+          db.session.commit()
+
+          flash('Venue ' + venue.name + ' was successfully listed!')
+      except:
+          db.session.rollback()
+          flash('An error occurred. Venue ' + venue.name + ' could not be listed.')
+      finally:
+          db.session.close()
+  else:
+        message = []
+        for field, err in form.errors.items():
+              message.append(field + ' ' + '|'.join(err))
+        flash('Errors ' + str(message))
 
   
   # TODO: on unsuccessful db insert, flash an error instead.
@@ -457,35 +462,32 @@ def create_artist_submission():
   # called upon submitting the new artist listing form
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
-  error = False
-  try:
-      artist = Artist()
-      artist.name=request.form['name']
-      artist.city=request.form['city']
-      artist.state=request.form['state']
-      artist.phone=request.form['phone']
-      artist.genres=request.form.getlist('genres')
-      artist.facebook_link=request.form['facebook_link']
-      artist.image_link=request.form['image_link']
-      artist.website=request.form['website']
-      if(request.form['seeking_venue'] == 'True'):
-            artist.seeking_venue = True
-      else:
-            artist.seeking_venue = False
-      if(request.form['seeking_description'] != ''):
-            artist.seeking_description=request.form['seeking_description']
 
-      db.session.add(artist)
-      db.session.commit()
+  form = ArtistForm(request.form, meta={'csrf': False})
+  if form.validate():
+      try:
+          artist = Artist()
+          form.populate_obj(artist)
 
-      # on successful db insert, flash success
-      flash('Artist ' + artist.name + ' was successfully listed!')
-  except:
-      error = True
-      db.session.rollback()
-      flash('An error occurred. Artist ' + artist.name + ' could not be listed.')
-  finally:
-      db.session.close()
+          if(request.form['seeking_venue'] == 'True'):
+              artist.seeking_venue = True
+          else:
+              artist.seeking_venue = False
+
+          db.session.add(artist)
+          db.session.commit()
+
+          flash('Artist ' + artist.name + ' was successfully listed!')
+      except:
+          db.session.rollback()
+          flash('An error occurred. Artist ' + artist.name + ' could not be listed.')
+      finally:
+          db.session.close()
+  else:
+        message = []
+        for field, err in form.errors.items():
+              message.append(field + ' ' + '|'.join(err))
+        flash('Errors ' + str(message))
 
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
@@ -526,24 +528,25 @@ def create_shows():
 def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
   # TODO: insert form data as a new Show record in the db, instead
-  error = False
-  try:
-      show = Show()
-      show.artist_id=request.form['artist_id']
-      show.venue_id=request.form['venue_id']
-      show.start_time=request.form['start_time']
 
-      db.session.add(show)
-      db.session.commit()
-
-      # on successful db insert, flash success
-      flash('Show was successfully listed!')
-  except:
-      error = True
-      db.session.rollback()
-      flash('An error occurred. Show could not be listed.')
-  finally:
-      db.session.close()
+  form = ShowForm(request.form, meta={'csrf': False})
+  if form.validate():
+      try:
+          show = Show()
+          form.populate_obj(show)
+          db.session.add(show)
+          db.session.commit()
+          flash('Show was successfully listed!')
+      except:
+          db.session.rollback()
+          flash('An error occurred. Show could not be listed.')
+      finally:
+          db.session.close()
+  else:
+        message = []
+        for field, err in form.errors.items():
+              message.append(field + ' ' + '|'.join(err))
+        flash('Errors ' + str(message))
 
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Show could not be listed.')
